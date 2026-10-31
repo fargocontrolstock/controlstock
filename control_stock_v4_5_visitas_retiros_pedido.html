@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#163b35">
+<title>Control de stock V4.5 - Visitas, retiros y pedido</title>
+<style>
+:root{--green:#163b35;--green2:#24594f;--paper:#f4f6f3;--card:#fff;--ink:#1c2925;--muted:#65736d;--line:#dce4df;--orange:#a65319;--red:#a72f2f}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{background:var(--green);color:#fff;padding:18px 16px 16px;position:sticky;top:0;z-index:5;box-shadow:0 2px 8px #0002}
+header h1{font-size:21px;margin:0 0 10px}header .sub{font-size:13px;color:#d6e5df}
+main{max-width:760px;margin:auto;padding:14px 12px 96px}
+.vehiclebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.vehiclebar label{font-size:13px;color:#d6e5df}.vehiclebar select{flex:1;min-width:150px}
+nav{display:flex;gap:6px;overflow:auto;padding:10px 12px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:102px;z-index:4}
+nav button{white-space:nowrap;border:0;background:#edf2ee;color:var(--green);padding:10px 12px;border-radius:10px;font-weight:700}
+nav button.active{background:var(--green);color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;margin:0 0 12px;box-shadow:0 2px 8px #163b3508}
+h2{font-size:18px;margin:0 0 12px}h3{font-size:15px;margin:0 0 8px}
+.muted{color:var(--muted);font-size:13px}.row{display:flex;gap:9px;align-items:center}.row>*{min-width:0}.row .grow{flex:1}
+label{display:block;font-size:13px;font-weight:650;margin:10px 0 5px;color:#3d4d46}
+input,select,textarea{font:inherit;width:100%;padding:11px 10px;border:1px solid #cbd6cf;border-radius:9px;background:#fff;color:var(--ink)}
+input[type=number]{text-align:right}button{font:inherit;cursor:pointer}.btn{border:0;border-radius:10px;padding:12px 14px;font-weight:750;background:var(--green);color:#fff}.btn.secondary{background:#e8efea;color:var(--green)}.btn.warn{background:#fff0e5;color:#8b4514}.btn.danger{background:#fce9e9;color:var(--red)}.btn.small{padding:8px 10px;font-size:13px}.btn.full{width:100%;margin-top:12px}
+.productline{display:grid;grid-template-columns:minmax(0,1fr) 80px;gap:10px;padding:11px 0;border-bottom:1px solid #edf1ee;align-items:center}.productline:last-child{border-bottom:0}.pname{font-weight:750;overflow-wrap:anywhere}.pmeta{font-size:12px;color:var(--muted);margin-top:2px}.qty{width:80px}
+.stockpill{display:inline-block;border-radius:20px;padding:3px 8px;background:#e8f1eb;color:#24594f;font-size:12px;font-weight:750}.stockpill.low{background:#fff0e5;color:#8b4514}
+.statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{background:#f2f6f3;border-radius:11px;padding:12px}.stat strong{display:block;font-size:23px;color:var(--green)}.stat span{font-size:12px;color:var(--muted)}
+.listitem{padding:12px 0;border-bottom:1px solid var(--line)}.listitem:last-child{border-bottom:0}.listtop{display:flex;justify-content:space-between;gap:10px}.right{text-align:right}.empty{padding:20px;text-align:center;color:var(--muted)}
+.hidden{display:none!important}.search{margin-bottom:8px}.notice{border-left:4px solid #d49a39;padding:10px 12px;background:#fff8e9;border-radius:7px;font-size:13px;margin-bottom:12px}
+small{font-size:12px}.tag{font-size:12px;background:#edf2ee;padding:3px 7px;border-radius:6px}
+footer{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:9px 12px calc(9px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:11px}
+@media(min-width:600px){main{padding-top:20px}.statgrid{grid-template-columns:repeat(4,minmax(0,1fr))}nav{justify-content:center}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Control de stock</h1>
+  <div class="vehiclebar"><label for="vehicle">Vehículo de esta operación</label><select id="vehicle"><option value="Master">Master</option><option value="Sprinter">Sprinter</option></select></div>
+  <div class="sub" id="saveStatus">Los cambios se guardan en este dispositivo.</div>
+</header>
+<nav id="tabs">
+  <button class="active" data-tab="inicio">Resumen</button><button data-tab="venta">Venta / devolución</button><button data-tab="clientes">Clientes</button><button data-tab="carga">Plan de carga / pedido</button><button data-tab="stock">Stock</button><button data-tab="movimientos">Movimientos</button><button data-tab="historial">Historial ventas</button><button data-tab="productos">Productos</button><button data-tab="respaldo">Respaldo</button>
+</nav>
+<main>
+<section id="inicio" class="page">
+  <div class="notice"><b>Importante:</b> esta primera versión guarda los datos en este teléfono. Todavía no sincroniza automáticamente con el otro celular.</div>
+  <div class="card"><h2>Resumen de <span id="homeVehicle">Master</span></h2><div class="statgrid">
+    <div class="stat"><strong id="statProducts">0</strong><span>Productos activos</span></div>
+    <div class="stat"><strong id="statUnits">0</strong><span>Unidades en este vehículo</span></div>
+    <div class="stat"><strong id="statSales">0</strong><span>Ventas registradas hoy</span></div>
+    <div class="stat"><strong id="statMoves">0</strong><span>Movimientos totales</span></div>
+  </div></div>
+  <div class="card"><h2>Stock bajo o agotado</h2><div id="lowStock"></div></div>
+  <div class="card"><h2>Accesos rápidos</h2><div class="row"><button class="btn grow" onclick="showTab('venta')">Registrar venta</button><button class="btn secondary grow" onclick="showTab('stock')">Ver stock</button></div></div>
+  <div class="card"><h2>Los dos vehículos</h2><div id="bothStock"></div></div>
+</section>
+<section id="venta" class="page hidden">
+  <div class="card"><h2>Registrar venta</h2><p class="muted">Se descuenta del vehículo seleccionado arriba. La venta y las devoluciones se registran juntas y salen en un solo ticket.</p>
+    <div style="background:#edf4ef;border:1px solid #cbdcd0;border-radius:12px;padding:12px;margin:12px 0">
+      <label for="salePriceList" style="margin-top:0">1. Seleccioná la lista de precios</label>
+      <select id="salePriceList"></select>
+      <button class="btn secondary full" type="button" onclick="showTab('productos')">Crear o modificar listas</button>
+      <div class="muted" style="margin-top:6px">Los precios y el total del ticket se calculan con la lista elegida.</div>
+    </div>
+    <label for="client">Cliente</label><input id="client" list="saleClientOptions" placeholder="Nombre del cliente" autocomplete="off"><datalist id="saleClientOptions"></datalist><div class="muted" style="margin-top:4px">Al elegir un cliente configurado, vas a ver el stock máximo habitual de cada producto debajo de su nombre.</div>
+    <label for="seller">Quién hizo la venta (opcional)</label><input id="seller" placeholder="Nombre o iniciales">
+    <label for="saleSearch">Buscar producto</label><input class="search" id="saleSearch" placeholder="Escribí las primeras letras…">
+    <div id="saleProducts"></div>
+    <div class="card" style="margin-top:12px;background:#f8faf8"><h3>Cambios / devoluciones no vendibles</h3><p class="muted">Se imprimen debajo del total, sin precio y sin sumarse al importe de la venta. También se descuentan del stock.</p>
+      <label for="returnSearch">Buscar producto devuelto</label><input class="search" id="returnSearch" placeholder="Escribí las primeras letras…">
+      <div id="returnProducts"></div>
+    </div>
+    <div class="card" style="margin-top:12px;background:#fff8f1"><h3>Retiros sin reposición (RSR)</h3><p class="muted">Mercadería vencida o dañada que retirás del cliente sin llevar reemplazo. Se descuenta del importe a cobrar, pero NO del stock del vehículo.</p>
+      <label for="withdrawSearch">Buscar producto a retirar</label><input class="search" id="withdrawSearch" placeholder="Escribí las primeras letras…">
+      <div id="withdrawProducts"></div>
+    </div>
+    <div class="row" style="margin-top:12px"><div class="grow"><label for="saleNote">Nota (opcional)</label><input id="saleNote" placeholder="Observación"></div></div>
+    <button class="btn full" onclick="recordSale()">Guardar operación e imprimir ticket</button>
+  </div>
+</section>
+<section id="clientes" class="page hidden">
+  <div class="card"><h2>Agregar cliente</h2><p class="muted">Cargá cada cliente una sola vez. Después podrás editar el recorrido y las cantidades habituales de a poco.</p>
+    <label for="newClientName">Nombre del cliente</label><input id="newClientName" placeholder="Nombre del comercio">
+    <label for="newClientDay">Día de visita</label><select id="newClientDay"><option value="Lunes">Lunes</option><option value="Martes">Martes</option><option value="Miércoles">Miércoles</option><option value="Jueves">Jueves</option><option value="Viernes">Viernes</option></select>
+    <button class="btn full" onclick="addClient()">Agregar cliente</button>
+  </div>
+  <div class="card"><h2>Clientes y recorridos</h2><input id="clientSearchList" class="search" placeholder="Buscar cliente…" oninput="renderClients()"><div class="row"><div class="grow"><label for="clientDayFilter">Filtrar por día</label><select id="clientDayFilter" onchange="renderClients()"><option value="Todos">Todos los días</option><option>Lunes</option><option>Martes</option><option>Miércoles</option><option>Jueves</option><option>Viernes</option></select></div></div><div id="clientList"></div></div>
+  <div id="clientEditor" class="card hidden"></div>
+</section>
+<section id="carga" class="page hidden">
+  <div class="card"><h2>Plan de carga del vehículo</h2><p class="muted">Sumamos las cantidades habituales de los clientes que vas a visitar y las comparamos con el stock que quedó en el vehículo. No se supone que sabemos qué quedó en los exhibidores: las ventas y devoluciones se registran cuando visitás cada cliente.</p>
+    <label for="planDay">Día del recorrido</label><select id="planDay" onchange="planDayChanged()"><option>Lunes</option><option>Martes</option><option>Miércoles</option><option>Jueves</option><option>Viernes</option></select>
+    <label for="planVehicle">Vehículo que vas a usar</label><select id="planVehicle" onchange="renderLoadPlan()"><option value="Master">Master</option><option value="Sprinter">Camión grande / Sprinter</option></select>
+    <div id="planSummary" class="notice" style="margin-top:12px"></div><div id="loadPlanList"></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+    <h2>Pedido a la empresa</h2><p class="muted">Calcula el pedido para el próximo ciclo de carga, sumando las necesidades previstas de ambos vehículos y descontando el stock disponible de Master + Sprinter.</p>
+    <label for="orderCycle">Ciclo que vas a preparar</label><select id="orderCycle" onchange="renderOrderPlan()"><option value="lunes">Pedido para carga del lunes (repartos lunes, martes y miércoles)</option><option value="jueves">Pedido para carga del jueves (repartos miércoles, jueves y viernes)</option></select>
+    <div id="orderSummary" class="notice" style="margin-top:12px"></div><div id="orderPlanList"></div>
+    <button class="btn secondary full" onclick="showTab('clientes')">Editar clientes y cantidades</button>
+  </div>
+  <div class="card"><h2>Cómo calcula la carga</h2><p>Ejemplo: si para el recorrido del miércoles tenés previstos 50 panes de salvado entre todos los clientes y en la Master quedaron 10, la aplicación te recomienda cargar 40 desde el camión.</p><p class="muted">Es una planificación de referencia basada en las cantidades habituales configuradas para cada cliente. No descuenta anticipadamente ventas ni devoluciones de clientes, porque esos datos recién se conocen durante el reparto.</p></div>
+</section>
+<section id="stock" class="page hidden">
+  <div class="card"><h2>Stock de <span class="vehicleName">Master</span></h2><input id="stockSearch" class="search" placeholder="Buscar producto…" oninput="renderStock()"><div id="stockList"></div></div>
+  <div class="card"><h2>Ajuste manual de stock</h2><p class="muted">Usalo para corregir una diferencia física. Cantidad positiva suma; negativa resta.</p>
+    <label>Producto</label><select id="adjustProduct"></select>
+    <div class="row"><div class="grow"><label>Cantidad (+ / −)</label><input id="adjustQty" type="number" step="1" placeholder="Ej. -2"></div><div class="grow"><label>Motivo</label><input id="adjustReason" placeholder="Conteo, pérdida…"></div></div>
+    <button class="btn full" onclick="adjustStock()">Guardar ajuste</button>
+  </div>
+  <div class="card"><h2>Baja de mercadería no apta</h2><p class="muted">Para panes rotos, aplastados, con el envase dañado u otra mercadería que no se puede vender. Se descuenta del stock del vehículo seleccionado y queda asentado en el historial.</p>
+    <label>Producto</label><select id="writeoffProduct"></select>
+    <div class="row"><div class="grow"><label>Cantidad a dar de baja</label><input id="writeoffQty" type="number" min="1" step="1" placeholder="Unidades"></div><div class="grow"><label>Motivo</label><select id="writeoffReason"><option>Envase roto</option><option>Producto aplastado</option><option>Mercadería dañada</option><option>Fuera de condiciones de venta</option><option>Otro</option></select></div></div>
+    <label>Detalle adicional (opcional)</label><input id="writeoffDetail" placeholder="Ej. se rompió al preparar el pedido">
+    <button class="btn warn full" onclick="writeOffStock()">Registrar baja de mercadería</button>
+  </div>
+  <div class="card"><h2>Transferir entre vehículos</h2><p class="muted">Registra la salida de un vehículo y la entrada en el otro.</p>
+    <label>Producto</label><select id="transferProduct"></select>
+    <div class="row"><div class="grow"><label>Desde</label><select id="transferFrom"><option>Sprinter</option><option>Master</option></select></div><div class="grow"><label>Hacia</label><select id="transferTo"><option>Master</option><option>Sprinter</option></select></div></div>
+    <label>Cantidad</label><input id="transferQty" type="number" min="1" step="1" placeholder="Unidades">
+    <button class="btn full" onclick="transferStock()">Registrar transferencia</button>
+  </div>
+</section>
+<section id="movimientos" class="page hidden">
+  <div class="card"><h2>Movimientos recientes</h2><p class="muted">Se muestran los movimientos de ambos vehículos.</p><div class="row"><button class="btn secondary small" onclick="renderMoves('Todos')">Todos</button><button class="btn secondary small" onclick="renderMoves('Master')">Master</button><button class="btn secondary small" onclick="renderMoves('Sprinter')">Sprinter</button></div><div id="moveList" style="margin-top:8px"></div></div>
+</section>
+<section id="historial" class="page hidden">
+  <div class="card"><h2>Historial de ventas</h2><p class="muted">Cada operación queda guardada con su detalle original. Podés consultar el ticket y reimprimirlo sin volver a descontar stock.</p>
+    <label for="historySearch">Buscar por cliente</label><input id="historySearch" class="search" placeholder="Escribí el nombre del cliente…" oninput="renderSalesHistory()">
+    <div class="row"><div class="grow"><label for="historyDate">Filtrar por fecha</label><input id="historyDate" type="date" onchange="renderSalesHistory()"></div><div style="padding-top:27px"><button class="btn secondary" onclick="clearSalesHistoryFilters()">Limpiar</button></div></div>
+    <div id="salesHistoryList" style="margin-top:10px"></div>
+  </div>
+  <div id="saleDetail" class="card hidden"></div>
+</section>
+<section id="productos" class="page hidden">
+  <div class="card"><h2>Listas de precios</h2>
+    <p class="muted">Creá una lista para cada grupo de clientes. Al crear una lista nueva, copia los precios de la lista General como punto de partida; después podés modificarlos producto por producto.</p>
+    <div class="row"><div class="grow"><label for="newPriceListName">Nombre de la lista nueva</label><input id="newPriceListName" placeholder="Ej. Lista almacenes, Lista kioscos…"></div><div style="padding-top:27px"><button class="btn" onclick="addPriceList()">Crear lista</button></div></div>
+    <div id="priceListManager"></div>
+  </div>
+  <div class="card"><h2>Agregar producto</h2><p class="muted">Cargá el catálogo a tu manera. El orden que uses se conserva.</p>
+    <label>Nombre del producto</label><input id="newName" placeholder="Ej. PAN LACTAL…">
+    <label>Precio unitario ($)</label><input id="newPrice" type="number" min="0" step="0.01" placeholder="Ej. 2500">
+    <div class="row"><div class="grow"><label>Stock inicial Master</label><input id="newMaster" type="number" min="0" step="1" value="0"></div><div class="grow"><label>Stock inicial Sprinter</label><input id="newSprinter" type="number" min="0" step="1" value="0"></div></div>
+    <button class="btn full" onclick="addProduct()">Agregar producto</button>
+  </div>
+  <div class="card"><h2>Catálogo</h2><input id="productSearch" class="search" placeholder="Buscar producto…" oninput="renderProducts()"><div id="productList"></div></div>
+</section>
+<section id="respaldo" class="page hidden">
+  <div class="card"><h2>Respaldo de datos</h2><p>Descargá un archivo de respaldo con productos, stocks y movimientos. Guardalo en un lugar seguro y hacé uno al terminar la jornada.</p><button class="btn full" onclick="exportBackup()">Descargar respaldo</button>
+    <label>Restaurar desde un respaldo JSON</label><input id="importFile" type="file" accept=".json,application/json"><button class="btn secondary full" onclick="importBackup()">Restaurar respaldo</button>
+    <p class="muted">Restaurar reemplaza los datos que están guardados en este teléfono. Exportá primero si querés conservarlos.</p>
+  </div>
+  <div class="card"><h2>Qué incluye esta versión</h2><ul><li>Stock separado de Master y Sprinter.</li><li>Ventas con precio unitario y total, devoluciones no vendibles en el mismo ticket, ajustes y transferencias.</li><li>Historial de movimientos y de ventas con detalle y reimpresión de tickets sin volver a descontar stock.</li><li>Respaldo/restauración de productos, stock, listas de precios, clientes, ventas y cantidades de la visita anterior.</li><li>Referencia compacta por producto de la última visita: VA (venta anterior), DEV (devoluciones) y RSR (retiros sin reposición), en campos separados.</li><li>Retiros sin reposición: descuentan el importe a cobrar sin afectar el stock del vehículo.</li><li>Pedido por ciclo de carga: lunes cubre lunes a miércoles; jueves cubre miércoles a viernes, usando stock conjunto Master + Sprinter y mostrando desglose por día y cliente.</li><li>Clientes organizados por día y planificación de carga según cantidades habituales y stock que quedó en el vehículo.</li><li>Funcionamiento sin conexión después de abrir/guardar el archivo en el teléfono.</li></ul><p class="muted">Pendiente: sincronización real entre teléfonos e importación de Excel. La sincronización requiere configurar una base de datos compartida en la nube; el respaldo JSON no sincroniza por sí solo. La planificación no reemplaza el registro real de ventas y devoluciones durante la visita.</p></div>
+</section>
+</main>
+<footer>Versión 4.4 · Visita anterior · Datos guardados en este dispositivo</footer>
+<script>
+const KEY='control_stock_basico_v1';
+let state={products:[],moves:[],nextId:1,priceLists:[],selectedPriceListId:'general',clients:[],nextClientId:1,sales:[],nextSaleId:1,lastVisitByClient:{}};
+let activeMoveFilter='Todos';
+let editingPricesProductId=null;
+const $=id=>document.getElementById(id);
+function load(){try{const raw=localStorage.getItem(KEY);if(raw){const d=JSON.parse(raw);if(d&&Array.isArray(d.products)&&Array.isArray(d.moves))state={...state,...d};}}catch(e){};if(!Array.isArray(state.clients))state.clients=[];if(!Array.isArray(state.sales))state.sales=[];if(!state.lastVisitByClient||typeof state.lastVisitByClient!=='object')state.lastVisitByClient={};if(!Number.isFinite(Number(state.nextSaleId)))state.nextSaleId=Math.max(1,...state.sales.map(v=>Number(v.id)||0))+1;if(!Number.isFinite(Number(state.nextClientId)))state.nextClientId=Math.max(1,...state.clients.map(c=>Number(c.id)||0))+1;state.clients.forEach(c=>{if(!Array.isArray(c.items))c.items=[];if(!['Lunes','Martes','Miércoles','Jueves','Viernes'].includes(c.day))c.day='Lunes'});ensurePriceLists()}
+function ensurePriceLists(){
+ if(!Array.isArray(state.priceLists)||!state.priceLists.length)state.priceLists=[{id:'general',name:'General',isDefault:true}];
+ if(!state.priceLists.some(l=>l.id===state.selectedPriceListId))state.selectedPriceListId=(state.priceLists.find(l=>l.isDefault)||state.priceLists[0]).id;
+ state.products.forEach(p=>{if(!p.prices||typeof p.prices!=='object')p.prices={};state.priceLists.forEach(l=>{if(p.prices[l.id]===undefined)p.prices[l.id]=Number(p.price)||0;});});
+}
+function priceFor(p,listId=state.selectedPriceListId){if(p&&p.prices&&p.prices[listId]!==undefined)return Number(p.prices[listId])||0;return Number(p?.price)||0}
+function save(){ensurePriceLists();localStorage.setItem(KEY,JSON.stringify(state));$('saveStatus').textContent='Guardado en este dispositivo · '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});renderAll();}
+function vehicle(){return $('vehicle').value}
+function activeProducts(){return state.products.filter(p=>p.active!==false)}
+function pby(id){return state.products.find(p=>p.id===id)}
+function num(v){return Math.max(0,Number(v)||0)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function today(){return new Date().toISOString().slice(0,10)}
+function addMove(type,veh,productId,qty,details,extra={}){state.moves.unshift({id:Date.now()+Math.random(),date:new Date().toISOString(),type,vehicle:veh,productId,qty:Number(qty)||0,details,...extra})}
+function showTab(id){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('hidden',x.id!==id));document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));window.scrollTo(0,0);renderAll()}
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+$('vehicle').addEventListener('change',renderAll);
+$('salePriceList').addEventListener('change',()=>{state.selectedPriceListId=$('salePriceList').value;localStorage.setItem(KEY,JSON.stringify(state));renderSaleProducts();});
+$('saleSearch').addEventListener('input',renderSaleProducts);$('returnSearch').addEventListener('input',renderReturnProducts);$('withdrawSearch').addEventListener('input',renderWithdrawProducts);$('client').addEventListener('input',()=>{renderSaleProducts();});
+function renderAll(){if(!$('homeVehicle'))return;$('homeVehicle').textContent=vehicle();document.querySelectorAll('.vehicleName').forEach(x=>x.textContent=vehicle());renderPriceListSelect();renderPriceListManager();renderSummary();renderSaleProducts();renderReturnProducts();renderWithdrawProducts();renderStock();renderProducts();fillSelects();renderMoves(activeMoveFilter);renderSalesHistory();renderClients();renderClientEditor();renderLoadPlan();renderOrderPlan()}
+function renderSummary(){let ps=activeProducts(),units=ps.reduce((a,p)=>a+(Number(p.stock[vehicle()])||0),0),sales=state.moves.filter(m=>m.type==='Venta'&&m.date.slice(0,10)===today()).length;$('statProducts').textContent=ps.length;$('statUnits').textContent=units;$('statSales').textContent=sales;$('statMoves').textContent=state.moves.length;
+let low=ps.filter(p=>(Number(p.stock[vehicle()])||0)<=2);$('lowStock').innerHTML=low.length?low.map(p=>`<div class="listitem"><div class="listtop"><b>${esc(p.name)}</b><span class="stockpill ${p.stock[vehicle()]<=0?'low':''}">${p.stock[vehicle()]||0} u.</span></div></div>`).join(''):'<div class="empty">No hay productos con 2 unidades o menos.</div>';
+$('bothStock').innerHTML=['Master','Sprinter'].map(v=>`<div class="listitem"><div class="listtop"><b>${v}</b><b>${ps.reduce((a,p)=>a+(Number(p.stock[v])||0),0)} unidades</b></div></div>`).join('')}
+function money(n){return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2}).format(Number(n)||0)}
+function renderPriceListSelect(){const el=$('salePriceList');if(!el)return;el.innerHTML=state.priceLists.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');if(!state.priceLists.some(l=>l.id===state.selectedPriceListId))state.selectedPriceListId=state.priceLists[0]?.id||'general';el.value=state.selectedPriceListId}
+function selectedSaleClient(){const name=($('client')?.value||'').trim().toLocaleLowerCase('es');return name?state.clients.find(c=>c.name.trim().toLocaleLowerCase('es')===name):null}
+function clientVisitKey(name){return String(name||'').trim().toLocaleLowerCase('es')}
+function previousVisitData(clientName,productId){const snap=state.lastVisitByClient?.[clientVisitKey(clientName)],k=String(productId);if(!snap||!snap.quantities||!Object.prototype.hasOwnProperty.call(snap.quantities,k))return {va:'—',dev:'—',rsr:'—'};return {va:Number(snap.quantities[k])||0,dev:Number(snap.returns?.[k])||0,rsr:Number(snap.withdrawals?.[k])||0}}
+function renderSaleProducts(){const q=($('saleSearch').value||'').trim().toLocaleLowerCase('es');const client=selectedSaleClient();const dl=$('saleClientOptions');if(dl)dl.innerHTML=state.clients.slice().sort((a,b)=>a.name.localeCompare(b.name,'es')).map(c=>`<option value="${esc(c.name)}"></option>`).join('');$('saleProducts').innerHTML=activeProducts().filter(p=>p.name.toLocaleLowerCase('es').includes(q)).map(p=>{const it=client?.items?.find(x=>Number(x.productId)===Number(p.id));const maxText=client?(it?`Máx. cliente: ${Number(it.qty)||0} u.`:'Sin máximo configurado'):'Máx. cliente: elegí un cliente';const va=previousVisitData($('client').value,p.id);return `<div class="productline"><div><div class="pname">${esc(p.name)}</div><div class="pmeta">${money(priceFor(p))} c/u · Stock ${vehicle()}: ${p.stock[vehicle()]||0} u.</div><div class="pmeta" style="font-weight:700;color:#315b43">${maxText}</div><div class="pmeta" style="font-weight:700;color:#744d18">VA: ${va.va} · DEV: ${va.dev} · RSR: ${va.rsr}</div></div><input class="qty saleQty" data-id="${p.id}" type="number" min="0" step="1" placeholder="Cant." aria-label="Cantidad ${esc(p.name)}"></div>`}).join('')||'<div class="empty">No hay productos. Agregalos en Productos.</div>'}
+function renderReturnProducts(){const q=($('returnSearch').value||'').trim().toLocaleLowerCase('es');$('returnProducts').innerHTML=activeProducts().filter(p=>p.name.toLocaleLowerCase('es').includes(q)).map(p=>`<div class="productline"><div><div class="pname">${esc(p.name)}</div><div class="pmeta">Se descontará del stock de ${vehicle()}.</div></div><input class="qty returnQty" data-id="${p.id}" type="number" min="0" step="1" placeholder="Cant." aria-label="Devolución ${esc(p.name)}"></div>`).join('')||'<div class="empty">No hay productos.</div>'}
+function renderWithdrawProducts(){const q=($('withdrawSearch')?.value||'').trim().toLocaleLowerCase('es');const host=$('withdrawProducts');if(!host)return;host.innerHTML=activeProducts().filter(p=>p.name.toLocaleLowerCase('es').includes(q)).map(p=>`<div class="productline"><div><div class="pname">${esc(p.name)}</div><div class="pmeta">Descuento: ${money(priceFor(p))} por unidad · sin movimiento de stock</div></div><input class="qty withdrawQty" data-id="${p.id}" type="number" min="0" step="1" placeholder="Cant." aria-label="Retiro sin reposición ${esc(p.name)}"></div>`).join('')||'<div class="empty">No hay productos.</div>'}
+function recordSale(){
+ const entries=[...document.querySelectorAll('.saleQty')].map(i=>({p:pby(Number(i.dataset.id)),q:num(i.value)})).filter(x=>x.q>0);
+ const returns=[...document.querySelectorAll('.returnQty')].map(i=>({p:pby(Number(i.dataset.id)),q:num(i.value)})).filter(x=>x.q>0);
+ const withdrawals=[...document.querySelectorAll('.withdrawQty')].map(i=>({p:pby(Number(i.dataset.id)),q:num(i.value)})).filter(x=>x.q>0);
+ if(!entries.length&&!returns.length&&!withdrawals.length){alert('Ingresá al menos una venta, devolución o retiro.');return}
+ const totals={};entries.forEach(e=>totals[e.p.id]=(totals[e.p.id]||0)+e.q);returns.forEach(e=>totals[e.p.id]=(totals[e.p.id]||0)+e.q);
+ for(const id of Object.keys(totals)){const p=pby(Number(id));if(totals[id]>Number(p.stock[vehicle()]||0)){alert(`No alcanza el stock de ${p.name} para la venta y la devolución. Disponible: ${p.stock[vehicle()]||0}.`);return}}
+ const client=$('client').value.trim()||'Sin cliente',seller=$('seller').value.trim(),note=$('saleNote').value.trim(),items=[],returnItems=[],withdrawalItems=[];let total=0;
+ entries.forEach(e=>{const price=priceFor(e.p),subtotal=price*e.q;total+=subtotal;e.p.stock[vehicle()]-=e.q;items.push({name:e.p.name,qty:e.q,price,subtotal,productId:e.p.id});addMove('Venta',vehicle(),e.p.id,-e.q,`Cliente: ${client}${seller?' · Vendedor: '+seller:''}${note?' · '+note:''}`,{client,seller,priceListId:state.selectedPriceListId,priceListName:state.priceLists.find(l=>l.id===state.selectedPriceListId)?.name||'General',unitPrice:price,subtotal})});
+ returns.forEach(e=>{e.p.stock[vehicle()]-=e.q;returnItems.push({name:e.p.name,qty:e.q,productId:e.p.id});addMove('Devolución no vendible',vehicle(),e.p.id,-e.q,`Cliente: ${client}`,{client})});
+ withdrawals.forEach(e=>{const price=priceFor(e.p),discount=price*e.q;total-=discount;withdrawalItems.push({name:e.p.name,qty:e.q,price,subtotal:discount,productId:e.p.id});});
+ const sale={id:state.nextSaleId++,date:new Date().toISOString(),client,vehicle:vehicle(),seller,priceListName:state.priceLists.find(l=>l.id===state.selectedPriceListId)?.name||'General',items:items.map(i=>({...i})),returns:returnItems.map(i=>({...i})),withdrawals:withdrawalItems.map(i=>({...i})),total,note};
+ state.sales.unshift(sale);
+ const visitQuantities={},visitReturns={},visitWithdrawals={};activeProducts().forEach(p=>{const k=String(p.id);visitQuantities[k]=0;visitReturns[k]=0;visitWithdrawals[k]=0});entries.forEach(e=>visitQuantities[String(e.p.id)]=e.q);returns.forEach(e=>visitReturns[String(e.p.id)]=e.q);withdrawals.forEach(e=>visitWithdrawals[String(e.p.id)]=e.q);
+ state.lastVisitByClient[clientVisitKey(client)]={date:sale.date,vehicle:sale.vehicle,quantities:visitQuantities,returns:visitReturns,withdrawals:visitWithdrawals};
+ printTicket(sale);document.querySelectorAll('.saleQty,.returnQty,.withdrawQty').forEach(i=>i.value='');$('client').value='';$('seller').value='';$('saleNote').value='';save();alert('Operación guardada en el historial y ticket preparado para imprimir.');
+}
+function printTicket(data){
+ let lines=['Cliente: '+data.client,'------------------------------'];
+ (data.items||[]).forEach(i=>{lines.push(i.name,'  '+i.qty+' x '+money(i.price)+' = '+money(i.subtotal));});
+ if(data.withdrawals&&data.withdrawals.length){lines.push('','RETIROS SIN REPOSICIÓN');data.withdrawals.forEach(i=>lines.push(i.name+'  x'+i.qty+'  -'+money(i.subtotal)));}
+ if(data.items&&data.items.length||data.withdrawals&&data.withdrawals.length){lines.push('------------------------------','TOTAL A COBRAR: '+money(data.total));}
+ if(data.returns&&data.returns.length){lines.push('','CAMBIOS / DEVOLUCIONES');data.returns.forEach(i=>lines.push(i.name+'  x'+i.qty));}
+ if(data.note)lines.push('',data.note);lines.push('------------------------------',new Date(data.date||Date.now()).toLocaleString('es-AR'));
+ const w=window.open('','_blank','width=360,height=600');if(!w){alert('El navegador bloqueó la ventana de impresión. Permití ventanas emergentes para imprimir.');return}
+ w.document.write('<html><head><meta charset="utf-8"><title>Ticket</title><style>body{font: bold 14px monospace;white-space:pre-wrap;width:58mm;margin:3mm;color:#000;overflow-wrap:anywhere}button{font:14px sans-serif}@media print{button{display:none}}</style></head><body>'+esc(lines.join('\n'))+'<br><button onclick="window.print()">Imprimir ticket</button></body></html>');w.document.close()
+}
+const WEEKDAYS=['Lunes','Martes','Miércoles','Jueves','Viernes'];
+function dayForDate(d=new Date()){return ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][d.getDay()]}
+function defaultVehicleForDay(day){return day==='Lunes'||day==='Jueves'?'Sprinter':'Master'}
+function addClient(){const name=$('newClientName').value.trim(),day=$('newClientDay').value;if(!name){alert('Escribí el nombre del cliente.');return}if(state.clients.some(c=>c.name.toLocaleLowerCase('es')===name.toLocaleLowerCase('es'))){alert('Ya existe un cliente con ese nombre.');return}state.clients.push({id:state.nextClientId++,name,day,items:[]});$('newClientName').value='';save();alert('Cliente agregado. Ahora podés cargar sus productos y cantidades habituales.')}
+function clientBy(id){return state.clients.find(c=>Number(c.id)===Number(id))}
+let editingClientId=null;
+function editClient(id){editingClientId=Number(id);renderClientEditor();const el=$('clientEditor');if(el){el.classList.remove('hidden');el.scrollIntoView({behavior:'smooth',block:'start'})}}
+function closeClientEditor(){editingClientId=null;const el=$('clientEditor');el.classList.add('hidden');el.innerHTML=''}
+function renameClient(id){const c=clientBy(id);if(!c)return;const name=prompt('Nombre del cliente:',c.name);if(name&&name.trim()){if(state.clients.some(x=>x.id!==c.id&&x.name.toLocaleLowerCase('es')===name.trim().toLocaleLowerCase('es'))){alert('Ya existe un cliente con ese nombre.');return}c.name=name.trim();save()}}
+function changeClientDay(id,day){const c=clientBy(id);if(!c)return;c.day=day;save()}
+function deleteClient(id){const c=clientBy(id);if(!c)return;if(!confirm('¿Eliminar el cliente '+c.name+' y sus cantidades habituales?'))return;state.clients=state.clients.filter(x=>x.id!==c.id);if(editingClientId===c.id)editingClientId=null;save()}
+function renderClients(){const host=$('clientList');if(!host)return;const q=($('clientSearchList')?.value||'').trim().toLocaleLowerCase('es'),day=$('clientDayFilter')?.value||'Todos';const list=state.clients.filter(c=>(day==='Todos'||c.day===day)&&c.name.toLocaleLowerCase('es').includes(q)).sort((a,b)=>WEEKDAYS.indexOf(a.day)-WEEKDAYS.indexOf(b.day)||a.name.localeCompare(b.name,'es'));host.innerHTML=list.map(c=>`<div class="listitem"><div class="listtop"><div><b>${esc(c.name)}</b><div class="pmeta">${esc(c.day)} · ${(c.items||[]).length} productos configurados</div></div><button class="btn small" onclick="editClient(${c.id})">Productos / editar</button></div><div class="row" style="margin-top:8px;flex-wrap:wrap"><div class="grow"><select aria-label="Día de visita de ${esc(c.name)}" onchange="changeClientDay(${c.id},this.value)">${WEEKDAYS.map(d=>`<option ${c.day===d?'selected':''}>${d}</option>`).join('')}</select></div><button class="btn secondary small" onclick="renameClient(${c.id})">Renombrar</button><button class="btn danger small" onclick="deleteClient(${c.id})">Eliminar</button></div></div>`).join('')||'<div class="empty">Todavía no hay clientes con ese filtro. Agregá uno arriba.</div>';renderClientEditor()}
+function renderClientEditor(){const host=$('clientEditor');if(!host)return;const c=clientBy(editingClientId);if(!c){host.classList.add('hidden');host.innerHTML='';return}host.classList.remove('hidden');if(!Array.isArray(c.items))c.items=[];const products=activeProducts();host.innerHTML=`<h2>Productos habituales: ${esc(c.name)}</h2><p class="muted">Indicá cuántas unidades de cada producto necesitás prever para este cliente en una visita normal. Estas cantidades se suman con las de los demás clientes del mismo día.</p><label for="clientProductPick">Producto</label><select id="clientProductPick">${products.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select><div class="row"><div class="grow"><label for="clientProductQty">Cantidad habitual</label><input id="clientProductQty" type="number" min="0" step="1" placeholder="Unidades"></div><div style="padding-top:27px"><button class="btn" onclick="setClientProduct(${c.id})">Guardar producto</button></div></div><div style="margin-top:12px">${c.items.map(it=>{const p=pby(Number(it.productId));return p?`<div class="listitem"><div class="listtop"><div><b>${esc(p.name)}</b><div class="pmeta">Cantidad prevista: ${Number(it.qty)||0} unidades</div></div><div class="row"><button class="btn secondary small" onclick="editClientProductQty(${c.id},${p.id})">Cambiar</button><button class="btn danger small" onclick="removeClientProduct(${c.id},${p.id})">Quitar</button></div></div></div>`:''}).join('')||'<div class="empty">Todavía no configuraste productos para este cliente.</div>'}</div><button class="btn secondary full" onclick="closeClientEditor()">Cerrar edición</button>`}
+function setClientProduct(id){const c=clientBy(id),productId=Number($('clientProductPick')?.value),qty=Number($('clientProductQty')?.value);if(!c||!productId||!Number.isFinite(qty)||qty<0||!Number.isInteger(qty)){alert('Elegí un producto e ingresá una cantidad entera igual o mayor que cero.');return}if(!Array.isArray(c.items))c.items=[];const old=c.items.find(x=>Number(x.productId)===productId);if(old)old.qty=qty;else c.items.push({productId,qty});save();$('clientProductQty').value='';alert('Cantidad habitual guardada.')}
+function editClientProductQty(clientId,productId){const c=clientBy(clientId),it=c?.items.find(x=>Number(x.productId)===Number(productId)),p=pby(Number(productId));if(!it||!p)return;const raw=prompt('Cantidad habitual de '+p.name+' para '+c.name+':',String(it.qty));if(raw===null)return;const qty=Number(raw.replace(',','.'));if(!Number.isInteger(qty)||qty<0){alert('Ingresá un número entero igual o mayor que cero.');return}it.qty=qty;save()}
+function removeClientProduct(clientId,productId){const c=clientBy(clientId);if(!c)return;c.items=c.items.filter(x=>Number(x.productId)!==Number(productId));save()}
+function planDayChanged(){const day=$('planDay').value;$('planVehicle').value=defaultVehicleForDay(day);renderLoadPlan()}
+function renderLoadPlan(){const dayEl=$('planDay'),vehicleEl=$('planVehicle');if(!dayEl||!vehicleEl)return;const day=dayEl.value||dayForDate(),veh=vehicleEl.value||defaultVehicleForDay(day);const clients=state.clients.filter(c=>c.day===day);const totals={};clients.forEach(c=>(c.items||[]).forEach(it=>{const p=pby(Number(it.productId));if(p&&p.active!==false){totals[p.id]=(totals[p.id]||0)+Math.max(0,Number(it.qty)||0)}}));const rows=activeProducts().filter(p=>(totals[p.id]||0)>0).map(p=>{const target=totals[p.id]||0,available=Number(p.stock[veh])||0,need=Math.max(0,target-available);return {p,target,available,need}});const totalTarget=rows.reduce((a,r)=>a+r.target,0),totalAvailable=rows.reduce((a,r)=>a+r.available,0),totalNeed=rows.reduce((a,r)=>a+r.need,0);$('planSummary').innerHTML=`<b>${esc(day)} · ${esc(veh==='Sprinter'?'camión grande / Sprinter':'Master')}</b><br>${clients.length} cliente(s) asignados · ${totalTarget} unidades previstas entre los productos configurados.<br>Stock actual de esos productos en el vehículo: ${totalAvailable} unidades.<br><b>Sugerencia total de carga: ${totalNeed} unidades.</b>${clients.length===0?'<br><span class="muted">No hay clientes asignados a este día todavía.</span>':''}`;$('loadPlanList').innerHTML=rows.map(r=>`<div class="listitem"><div class="listtop"><div><b>${esc(r.p.name)}</b><div class="pmeta">Necesidad prevista: ${r.target} · Ya hay en ${esc(veh)}: ${r.available}</div></div><span class="stockpill ${r.need>0?'low':''}">${r.need>0?'Cargar '+r.need:'Alcanza'}</span></div></div>`).join('')||'<div class="empty">No hay cantidades habituales configuradas para este recorrido. Entrá en Clientes y completá los productos.</div>'}
+function renderOrderPlan(){const cycle=$('orderCycle')?.value||'lunes';const days=cycle==='lunes'?['Lunes','Martes','Miércoles']:['Miércoles','Jueves','Viernes'];const totals={},byDay={};days.forEach(d=>{byDay[d]={};state.clients.filter(c=>c.day===d).forEach(c=>(c.items||[]).forEach(it=>{const p=pby(Number(it.productId));if(p&&p.active!==false){const q=Math.max(0,Number(it.qty)||0);totals[p.id]=(totals[p.id]||0)+q;byDay[d][p.id]=(byDay[d][p.id]||0)+q}}))});const rows=activeProducts().filter(p=>(totals[p.id]||0)>0).map(p=>{const m=Number(p.stock.Master)||0,sp=Number(p.stock.Sprinter)||0,available=m+sp,target=totals[p.id]||0,need=Math.max(0,target-available);return {p,m,sp,available,target,need}});const target=rows.reduce((a,r)=>a+r.target,0),available=rows.reduce((a,r)=>a+r.available,0),need=rows.reduce((a,r)=>a+r.need,0);$('orderSummary').innerHTML=`<b>Pedido para carga del ${cycle==='lunes'?'lunes':'jueves'}</b><br>Período cubierto: ${days.join(', ')}.<br>Necesidad prevista: ${target} u. · Stock conjunto Master + Sprinter: ${available} u.<br><b>Sugerencia de pedido: ${need} unidades.</b><br><span class="muted">El cálculo no modifica el stock real. Para el ciclo del jueves, la necesidad del miércoles está incluida una sola vez y el stock actual se toma como disponible para todo el período.</span>`;$('orderPlanList').innerHTML=rows.map(r=>{const daily=days.map(d=>`${d}: ${byDay[d][r.p.id]||0}`).join(' · ');const clients=days.flatMap(d=>state.clients.filter(c=>c.day===d&&(c.items||[]).some(it=>Number(it.productId)===Number(r.p.id)&&Number(it.qty)>0)).map(c=>`${esc(c.name)} (${Number(c.items.find(it=>Number(it.productId)===Number(r.p.id)).qty)||0})`));return `<div class="listitem"><div class="listtop"><div><b>${esc(r.p.name)}</b><div class="pmeta">${daily}</div><div class="pmeta">Master: ${r.m} · Sprinter: ${r.sp} · Total disponible: ${r.available}</div><div class="pmeta">Clientes: ${clients.join(', ')||'—'}</div></div><span class="stockpill ${r.need>0?'low':''}">${r.need>0?'Pedir '+r.need:'Alcanza'}</span></div></div>`}).join('')||'<div class="empty">No hay cantidades habituales configuradas para ese ciclo.</div>'}
+function renderStock(){if(!$('stockList'))return;const q=($('stockSearch').value||'').toLocaleLowerCase('es');$('stockList').innerHTML=activeProducts().filter(p=>p.name.toLocaleLowerCase('es').includes(q)).map(p=>`<div class="listitem"><div class="listtop"><div><b>${esc(p.name)}</b><div class="pmeta">Master: ${p.stock.Master||0} · Sprinter: ${p.stock.Sprinter||0}</div></div><span class="stockpill ${(p.stock[vehicle()]||0)<=2?'low':''}">${p.stock[vehicle()]||0} u.</span></div></div>`).join('')||'<div class="empty">No hay productos para mostrar.</div>'}
+function fillSelects(){for(const id of ['adjustProduct','transferProduct','writeoffProduct']){const el=$(id),old=el.value;el.innerHTML=activeProducts().map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');if([...el.options].some(o=>o.value===old))el.value=old}}
+function adjustStock(){const p=pby(Number($('adjustProduct').value)),q=Number($('adjustQty').value),reason=$('adjustReason').value.trim();if(!p||!Number.isFinite(q)||q===0){alert('Elegí un producto e ingresá una cantidad distinta de cero.');return}if((Number(p.stock[vehicle()])||0)+q<0){alert('El ajuste dejaría el stock en negativo.');return}p.stock[vehicle()]=(Number(p.stock[vehicle()])||0)+q;addMove('Ajuste',vehicle(),p.id,q,reason||'Ajuste manual');$('adjustQty').value='';$('adjustReason').value='';save();alert('Ajuste guardado.')}
+function writeOffStock(){
+ const p=pby(Number($('writeoffProduct').value)),q=num($('writeoffQty').value),reason=$('writeoffReason').value,detail=$('writeoffDetail').value.trim();
+ if(!p||q<=0){alert('Elegí un producto e ingresá una cantidad válida.');return}
+ const available=Number(p.stock[vehicle()])||0;
+ if(q>available){alert(`No alcanza el stock de ${vehicle()}. Disponible: ${available} unidades.`);return}
+ const fullReason=reason+(detail?' · '+detail:'');
+ if(!confirm(`Vas a dar de baja ${q} unidad(es) de ${p.name} en ${vehicle()}. Motivo: ${fullReason}. Se descontarán del stock. ¿Continuar?`))return;
+ p.stock[vehicle()]=available-q;
+ addMove('Baja de mercadería',vehicle(),p.id,-q,fullReason,{reason,detail});
+ $('writeoffQty').value='';$('writeoffDetail').value='';
+ save();alert('Baja registrada. La mercadería se descontó del stock y quedó en el historial.');
+}
+function transferStock(){const p=pby(Number($('transferProduct').value)),from=$('transferFrom').value,to=$('transferTo').value,q=num($('transferQty').value);if(!p||q<=0){alert('Elegí un producto e ingresá una cantidad válida.');return}if(from===to){alert('El vehículo de origen y destino tienen que ser distintos.');return}if((Number(p.stock[from])||0)<q){alert(`No alcanza el stock de ${from}. Disponible: ${p.stock[from]||0}.`);return}p.stock[from]-=q;p.stock[to]=(Number(p.stock[to])||0)+q;addMove('Transferencia salida',from,p.id,-q,`Hacia ${to}`);addMove('Transferencia entrada',to,p.id,q,`Desde ${from}`);$('transferQty').value='';save();alert('Transferencia registrada.')}
+function renderSalesHistory(){
+ const host=$('salesHistoryList');if(!host)return;
+ const q=($('historySearch')?.value||'').trim().toLocaleLowerCase('es');const day=$('historyDate')?.value||'';
+ const sales=(Array.isArray(state.sales)?state.sales:[]).filter(v=>(!q||String(v.client||'').toLocaleLowerCase('es').includes(q))&&(!day||String(v.date||'').slice(0,10)===day));
+ host.innerHTML=sales.map(v=>`<div class="listitem"><div class="listtop"><div><b>${esc(v.client||'Sin cliente')}</b><div class="pmeta">${new Date(v.date).toLocaleDateString('es-AR')} · ${new Date(v.date).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})} · ${esc(v.vehicle||'')}</div></div><b>${money(v.total)}</b></div><div class="pmeta">${(v.items||[]).length} producto(s) vendido(s)${(v.returns||[]).length?' · '+v.returns.length+' producto(s) devuelto(s)':''}${(v.withdrawals||[]).length?' · '+v.withdrawals.length+' retiro(s) sin reposición':''}</div><div class="row" style="margin-top:8px"><button class="btn secondary small grow" onclick="viewSale(${Number(v.id)})">Ver detalle</button><button class="btn small grow" onclick="reprintSale(${Number(v.id)})">Reimprimir ticket</button></div></div>`).join('')||'<div class="empty">No hay ventas que coincidan con la búsqueda.</div>';
+}
+function clearSalesHistoryFilters(){if($('historySearch'))$('historySearch').value='';if($('historyDate'))$('historyDate').value='';renderSalesHistory()}
+function viewSale(id){const v=(state.sales||[]).find(x=>Number(x.id)===Number(id));const box=$('saleDetail');if(!v||!box)return;const sold=(v.items||[]).map(i=>`<div class="listitem"><b>${esc(i.name)}</b><div class="pmeta">${i.qty} × ${money(i.price)} = <b>${money(i.subtotal)}</b></div></div>`).join('')||'<div class="muted">Sin productos vendidos.</div>';const returned=(v.returns||[]).map(i=>`<div class="listitem">${esc(i.name)} · ${i.qty} u.</div>`).join('');const withdrawn=(v.withdrawals||[]).map(i=>`<div class="listitem">${esc(i.name)} · ${i.qty} u. · descuento ${money(i.subtotal)}</div>`).join('');box.classList.remove('hidden');box.innerHTML=`<h2>Detalle de venta</h2><p><b>${esc(v.client||'Sin cliente')}</b><br><span class="muted">${new Date(v.date).toLocaleString('es-AR')} · ${esc(v.vehicle||'')}</span></p><p class="muted">Vendedor: ${esc(v.seller||'—')} · Lista: ${esc(v.priceListName||'General')}</p><h3>Productos vendidos</h3>${sold}<div class="listitem"><b>TOTAL: ${money(v.total)}</b></div>${returned?'<h3>Cambios / devoluciones no vendibles</h3>'+returned:''}${withdrawn?'<h3>Retiros sin reposición</h3>'+withdrawn:''}${v.note?'<p>Nota: '+esc(v.note)+'</p>':''}<div class="row" style="margin-top:10px"><button class="btn grow" onclick="reprintSale(${Number(v.id)})">Reimprimir ticket</button><button class="btn secondary grow" onclick="closeSaleDetail()">Cerrar detalle</button></div>`;box.scrollIntoView({behavior:'smooth',block:'start'})}
+function closeSaleDetail(){const box=$('saleDetail');if(box){box.classList.add('hidden');box.innerHTML=''}}
+function reprintSale(id){const v=(state.sales||[]).find(x=>Number(x.id)===Number(id));if(!v){alert('No encontré esa venta en el historial.');return}printTicket(v)}
+function renderMoves(filter='Todos'){activeMoveFilter=filter;if(!$('moveList'))return;let arr=state.moves.filter(m=>filter==='Todos'||m.vehicle===filter).slice(0,100);$('moveList').innerHTML=arr.map(m=>{const p=pby(m.productId);return `<div class="listitem"><div class="listtop"><b>${esc(m.type)} · ${esc(m.vehicle)}</b><span class="tag">${new Date(m.date).toLocaleDateString('es-AR')} ${new Date(m.date).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</span></div><div>${esc(p?.name||'Producto eliminado')} · <b>${m.qty>0?'+':''}${m.qty} u.</b></div><div class="muted">${esc(m.details||'')}</div></div>`}).join('')||'<div class="empty">Todavía no hay movimientos.</div>'}
+function addProduct(){const name=$('newName').value.trim();if(!name){alert('Escribí el nombre del producto.');return}if(state.products.some(p=>p.name.toLocaleLowerCase('es')===name.toLocaleLowerCase('es')&&p.active!==false)){alert('Ya existe un producto con ese nombre.');return}const price=Math.max(0,Number($('newPrice').value)||0);const prices={};state.priceLists.forEach(l=>prices[l.id]=price);const p={id:state.nextId++,name,price,prices,stock:{Master:num($('newMaster').value),Sprinter:num($('newSprinter').value)},active:true};state.products.push(p);addMove('Stock inicial','Master',p.id,p.stock.Master,'Alta de producto');if(p.stock.Sprinter)addMove('Stock inicial','Sprinter',p.id,p.stock.Sprinter,'Alta de producto');$('newName').value='';$('newPrice').value='';$('newMaster').value='0';$('newSprinter').value='0';save();alert('Producto agregado.')}
+function renderProducts(){if(!$('productList'))return;const q=($('productSearch').value||'').toLocaleLowerCase('es');$('productList').innerHTML=state.products.filter(p=>p.name.toLocaleLowerCase('es').includes(q)).map(p=>`<div class="listitem"><div class="listtop"><div><b>${esc(p.name)}</b><div class="pmeta">General: ${money(priceFor(p,'general'))} · Master: ${p.stock.Master||0} · Sprinter: ${p.stock.Sprinter||0} ${p.active===false?'· INACTIVO':''}</div></div><button class="btn ${p.active===false?'secondary':'warn'} small" onclick="toggleProduct(${p.id})">${p.active===false?'Reactivar':'Desactivar'}</button></div><div class="row" style="margin-top:8px"><button class="btn secondary small" onclick="renameProduct(${p.id})">Cambiar nombre</button><button class="btn secondary small" onclick="editProductPrices(${p.id})">Precios por lista</button><button class="btn danger small" onclick="deleteProduct(${p.id})">Eliminar</button></div></div>`).join('')||'<div class="empty">No hay productos en el catálogo.</div>'}
+function addPriceList(){
+ const name=$('newPriceListName').value.trim();if(!name){alert('Escribí el nombre de la lista.');return}
+ if(state.priceLists.some(l=>l.name.toLocaleLowerCase('es')===name.toLocaleLowerCase('es'))){alert('Ya existe una lista con ese nombre.');return}
+ const id='lista_'+Date.now();const base=state.priceLists.find(l=>l.isDefault)||state.priceLists[0];
+ state.priceLists.push({id,name,isDefault:false});
+ state.products.forEach(p=>{if(!p.prices)p.prices={};p.prices[id]=priceFor(p,base.id);});
+ $('newPriceListName').value='';state.selectedPriceListId=id;save();alert('Lista creada. Se copiaron los precios de '+base.name+' como punto de partida. Personalizalos con “Precios por lista”.');
+}
+function renderPriceListManager(){
+ const box=$('priceListManager');if(!box)return;
+ box.innerHTML=state.priceLists.map(l=>`<div class="listitem"><div class="listtop"><div><b>${esc(l.name)}</b>${l.isDefault?' <span class="tag">Lista base</span>':''}<div class="pmeta">${state.products.length} productos en el catálogo</div></div><div>${l.isDefault?'':`<button class="btn danger small" onclick="deletePriceList('${esc(l.id)}')">Eliminar lista</button>`}</div></div></div>`).join('');
+ if(editingPricesProductId!==null)renderPriceEditor();
+}
+function deletePriceList(id){
+ const l=state.priceLists.find(x=>x.id===id);if(!l||l.isDefault)return;
+ if(!confirm('¿Eliminar la lista “'+l.name+'”? No se borran productos ni movimientos, pero ya no podrás usar esos precios.'))return;
+ state.priceLists=state.priceLists.filter(x=>x.id!==id);state.products.forEach(p=>{if(p.prices)delete p.prices[id]});
+ if(state.selectedPriceListId===id)state.selectedPriceListId=(state.priceLists.find(x=>x.isDefault)||state.priceLists[0]).id;
+ editingPricesProductId=null;save();
+}
+function editProductPrices(id){editingPricesProductId=id;renderPriceEditor();const box=$('priceEditor');if(box)box.scrollIntoView({behavior:'smooth',block:'start'})}
+function renderPriceEditor(){
+ const host=$('priceListManager');if(!host)return;
+ const p=pby(editingPricesProductId);let old=$('priceEditor');if(old)old.remove();if(!p)return;
+ const div=document.createElement('div');div.id='priceEditor';div.className='card';div.style.marginTop='12px';
+ div.innerHTML=`<h3>Precios por lista: ${esc(p.name)}</h3><p class="muted">Ingresá el precio unitario que corresponde a cada lista.</p>`+
+ state.priceLists.map(l=>`<label for="price_${esc(l.id)}">${esc(l.name)} ($)</label><input id="price_${esc(l.id)}" type="number" min="0" step="0.01" value="${priceFor(p,l.id)}">`).join('')+
+ `<div class="row" style="margin-top:12px"><button class="btn grow" onclick="saveProductPrices(${p.id})">Guardar precios</button><button class="btn secondary grow" onclick="cancelPriceEditor()">Cancelar</button></div>`;
+ host.appendChild(div);
+}
+function saveProductPrices(id){
+ const p=pby(id);if(!p)return;if(!p.prices)p.prices={};
+ for(const l of state.priceLists){const el=$('price_'+l.id);const val=el?Number(el.value):priceFor(p,l.id);if(!Number.isFinite(val)||val<0){alert('Revisá el precio de la lista '+l.name+'.');return}p.prices[l.id]=val;}
+ p.price=priceFor(p,'general');editingPricesProductId=null;save();alert('Precios guardados para '+p.name+'.');
+}
+function cancelPriceEditor(){editingPricesProductId=null;renderPriceListManager()}
+function toggleProduct(id){const p=pby(id);if(!p)return;p.active=p.active===false;save()}
+function renameProduct(id){const p=pby(id);if(!p)return;const n=prompt('Nuevo nombre del producto:',p.name);if(n&&n.trim()){p.name=n.trim();save()}}
+function changePrice(id){const p=pby(id);if(!p)return;const raw=prompt('Precio unitario de '+p.name+' en la lista General (sin signo $):',String(priceFor(p,'general')));if(raw===null)return;const price=Number(raw.replace(',','.'));if(!Number.isFinite(price)||price<0){alert('Ingresá un precio válido.');return}if(!p.prices)p.prices={};p.prices.general=price;p.price=price;addMove('Cambio de precio',vehicle(),p.id,0,'Nuevo precio General: '+money(price));save()}
+function deleteProduct(id){const p=pby(id);if(!p)return;const used=state.moves.some(m=>m.productId===id);if(used){alert('Este producto tiene movimientos en el historial. Desactivalo para conservar el registro.');return}if(confirm('¿Eliminar definitivamente '+p.name+'?')){state.products=state.products.filter(x=>x.id!==id);save()}}
+function exportBackup(){const blob=new Blob([JSON.stringify({...state,backupCreated:new Date().toISOString()},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='respaldo_stock_'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function importBackup(){const f=$('importFile').files[0];if(!f){alert('Elegí primero un archivo JSON de respaldo.');return}const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.products)||!Array.isArray(d.moves))throw new Error();if(!confirm('Esto reemplazará los datos guardados en este teléfono. ¿Continuar?'))return;state={...state,...d,products:d.products,moves:d.moves,nextId:Number(d.nextId)||Math.max(1,...d.products.map(p=>Number(p.id)||0))+1,clients:Array.isArray(d.clients)?d.clients:[],nextClientId:Number(d.nextClientId)||Math.max(1,...(Array.isArray(d.clients)?d.clients:[]).map(c=>Number(c.id)||0))+1};save();alert('Respaldo restaurado.')}catch(e){alert('No pude leer ese respaldo. Elegí un JSON generado por esta aplicación.')}};r.readAsText(f)}
+load();if($('planDay')){const d=dayForDate();$('planDay').value=WEEKDAYS.includes(d)?d:'Lunes';$('planVehicle').value=defaultVehicleForDay($('planDay').value)}renderAll();
+</script>
+</body></html>
